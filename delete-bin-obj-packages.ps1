@@ -15,8 +15,15 @@ function Remove-BinObjPackagesFolders {
     $deletedFoldersCount = @{}
     $deletedFilesCount = @{}
 
+    $filesToDelete =@(foreach($folderName in $FoldersToDelete) {
+        Get-ChildItem -Path $SolutionPath -Recurse -Include $folderName -Directory -ErrorAction SilentlyContinue | 
+        ForEach-Object { Get-ChildItem -Path $_.FullName -Recurse -File -ErrorAction SilentlyContinue } 
+    })
+    $totalFilesCount = $filesToDelete.Count
+    $deletedFilesGlobalCount = 0
+
     foreach ($folderName in $FoldersToDelete) {
-        $folders = Get-ChildItem -Path $SolutionPath -Recurse -Include $folderName -Directory -Depth 2 -ErrorAction SilentlyContinue
+        $folders = Get-ChildItem -Path $SolutionPath -Recurse -Include $folderName -Directory -ErrorAction SilentlyContinue
         $deletedFoldersCount[$folderName] = 0
         $deletedFilesCount[$folderName] = 0
         
@@ -27,7 +34,9 @@ function Remove-BinObjPackagesFolders {
             $deletedFilesCount[$folderName] += $files.Count
 
             foreach ($file in $files) {
-                Write-Progress -Id 1 -Activity "Deleting $folderName folder in project: $($folder.Parent.FullName)" -Status "Deleting file $($file.Name)" -PercentComplete (100 / $files.Count * ($deletedFilesCount[$folderName] / $deletedFoldersCount[$folderName]))
+                Write-Progress -Id 1 -Activity "Deleting $folderName folder in project: $($folder.Parent.FullName)" `
+                    -Status "Deleting file $($file.Name)" `
+                    -PercentComplete ((++$deletedFilesGlobalCount / $totalFilesCount)*100)
                 $deletionTime = Get-Date -Format g
                 Add-Content -Path $LogFile -Value "$deletionTime - Deleting file: $($file.FullName)"
                 Remove-Item -Path $file.FullName -Force -ErrorAction Stop

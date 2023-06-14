@@ -58,6 +58,19 @@ function Remove-BinObjPackagesFolders {
 }
 
 $basePath = Read-Host -Prompt "Enter the base path of your .NET solution"
-$directories = Read-Host -Prompt "Enter the types of directories to delete (bin, obj, packages), separated by commas"
-$directoriesArray = $directories.Split(',')
-Remove-BinObjPackagesFolders -SolutionPath $basePath -FoldersToDelete $directoriesArray
+
+$folderTypes = @("bin", "obj", "packages")
+Write-Host "`nSelect the types of directories to delete:"
+for ($i = 1; $i -le $folderTypes.Length; $i++) {
+    Write-Host "$i. $($folderTypes[$i-1])"
+}
+
+$selectedIndices = Read-Host -Prompt "`nEnter the numbers corresponding to your choices, separated by commas"
+$selectedIndicesArray = $selectedIndices.Split(',')
+
+$selectedFolders = @()
+foreach ($index in $selectedIndicesArray) {
+    $selectedFolders += $folderTypes[$index.Trim() - 1]
+}
+
+Remove-BinObjPackagesFolders -SolutionPath $basePath -FoldersToDelete $selectedFolders

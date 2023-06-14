@@ -2,6 +2,8 @@ function Remove-BinObjPackagesFolders {
     param (
         [Parameter(Mandatory = $true)]
         [string]$SolutionPath,
+        [Parameter(Mandatory = $true)]
+        [string[]]$FoldersToDelete,
         [string]$LogFile = "RemovalLog.txt"
     )
 
@@ -10,10 +12,9 @@ function Remove-BinObjPackagesFolders {
         return
     }
 
-    $foldersToClean = @('bin', 'obj', 'packages')
     $deletedFoldersCount = @{}
 
-    foreach ($folderName in $foldersToClean) {
+    foreach ($folderName in $FoldersToDelete) {
         $folders = Get-ChildItem -Path $SolutionPath -Recurse -Include $folderName -Directory -Depth 2 -ErrorAction SilentlyContinue
         $deletedFoldersCount[$folderName] = 0
 
@@ -49,7 +50,7 @@ function Remove-BinObjPackagesFolders {
     }
 
     $summary = "Deletion summary:"
-    foreach ($folderName in $foldersToClean) {
+    foreach ($folderName in $FoldersToDelete) {
         $summary += "`nDeleted $($deletedFoldersCount[$folderName]) $folderName folder(s)."
     }
     Write-Host $summary
@@ -57,4 +58,6 @@ function Remove-BinObjPackagesFolders {
 }
 
 $basePath = Read-Host -Prompt "Enter the base path of your .NET solution"
-Remove-BinObjPackagesFolders -SolutionPath $basePath
+$directories = Read-Host -Prompt "Enter the types of directories to delete (bin, obj, packages), separated by commas"
+$directoriesArray = $directories.Split(',')
+Remove-BinObjPackagesFolders -SolutionPath $basePath -FoldersToDelete $directoriesArray

@@ -16,26 +16,29 @@ function Remove-BinObjPackagesFolders {
     $deletedFilesCount = @{}
 
     foreach ($folderName in $FoldersToDelete) {
-        $folders = Get-ChildItem -Path $SolutionPath -Recurse -Include $folderName -Directory -ErrorAction SilentlyContinue
+        $folders = Get-ChildItem -Path $SolutionPath -Recurse -Include $folderName -Directory -Depth 2 -ErrorAction SilentlyContinue
         $deletedFoldersCount[$folderName] = 0
         $deletedFilesCount[$folderName] = 0
         
         foreach ($folder in $folders) {
             $files = Get-ChildItem -Path $folder.FullName -Recurse -File -ErrorAction SilentlyContinue
-
+            
             $deletedFoldersCount[$folderName]++
             $deletedFilesCount[$folderName] += $files.Count
 
-            Write-Progress -Id 1 -Activity "Deleting $folderName folder in project: $($folder.Parent.FullName)" -Status "Deleting files..."
-
             foreach ($file in $files) {
+                Write-Progress -Id 1 -Activity "Deleting $folderName folder in project: $($folder.Parent.FullName)" -Status "Deleting file $($file.Name)" -PercentComplete (100 / $files.Count * ($deletedFilesCount[$folderName] / $deletedFoldersCount[$folderName]))
+                $deletionTime = Get-Date -Format g
+                Add-Content -Path $LogFile -Value "$deletionTime - Deleting file: $($file.FullName)"
                 Remove-Item -Path $file.FullName -Force -ErrorAction Stop
             }
 
-            Remove-Item -Path $folder.FullName -Recurse -Force -ErrorAction Continue
+            $deletionTime = Get-Date -Format g
+            Add-Content -Path $LogFile -Value "$deletionTime - Deleting folder: $($folder.FullName)"
+            Remove-Item -Path $folder.FullName -Recurse -Force -ErrorAction Stop
         }
 
-        Write-Progress -Id 1 -Activity "Deleted $folderName folders and their files" -Completed
+        Write-Progress -Id 1 -Activity "Deleted $folderName folders and their files" -Status "Completed" -Completed
     }
 
     $summary = "Deletion summary:"
@@ -43,7 +46,7 @@ function Remove-BinObjPackagesFolders {
         $summary += "`nDeleted $($deletedFoldersCount[$folderName]) $folderName folder(s), $($deletedFilesCount[$folderName]) file(s)."
     }
     Write-Host $summary
-    Add-Content -Path $LogFile -Value $summary
+    Add-Content -Path $LogFile -Value "Summary - $summary"
 }
 
 $basePath = Read-Host -Prompt "Enter the base path of your .NET solution"

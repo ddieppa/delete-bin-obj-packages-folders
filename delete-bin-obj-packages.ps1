@@ -13,45 +13,34 @@ function Remove-BinObjPackagesFolders {
     }
 
     $deletedFoldersCount = @{}
+    $deletedFilesCount = @{}
 
     foreach ($folderName in $FoldersToDelete) {
-        $folders = Get-ChildItem -Path $SolutionPath -Recurse -Include $folderName -Directory -Depth 2 -ErrorAction SilentlyContinue
+        $folders = Get-ChildItem -Path $SolutionPath -Recurse -Include $folderName -Directory -ErrorAction SilentlyContinue
         $deletedFoldersCount[$folderName] = 0
-
+        $deletedFilesCount[$folderName] = 0
+        
         foreach ($folder in $folders) {
-            try {
-                $files = Get-ChildItem -Path $folder.FullName -Recurse -File
-                $fileCount = $files.Count
-                $deletedFileCount = 0
+            $files = Get-ChildItem -Path $folder.FullName -Recurse -File -ErrorAction SilentlyContinue
 
-                Write-Progress -Id 1 -Activity "Deleting $folderName folder in project: $($folder.Parent.FullName)" -Status "Deleting files..."
+            $deletedFoldersCount[$folderName]++
+            $deletedFilesCount[$folderName] += $files.Count
 
-                foreach ($file in $files) {
-                    Write-Progress -Id 2 -Activity "Deleting file..." -Status "File $deletedFileCount of $fileCount" -PercentComplete (($deletedFileCount / $fileCount) * 100)
-                    Add-Content -Path $LogFile -Value "Deleting file: $($file.FullName)"
-                    Remove-Item -Path $file.FullName -Force -ErrorAction Stop
-                    $deletedFileCount++
-                }
+            Write-Progress -Id 1 -Activity "Deleting $folderName folder in project: $($folder.Parent.FullName)" -Status "Deleting files..."
 
-                if ($fileCount -eq $deletedFileCount) {
-                    Add-Content -Path $LogFile -Value "Deleting folder: $($folder.FullName)"
-                    Remove-Item -Path $folder.FullName -Recurse -Force -ErrorAction Stop
-                    $deletedFoldersCount[$folderName]++
-                }       
-
-                Write-Progress -Id 1 -Activity "Deleting $folderName folder in project: $($folder.Parent.FullName)" -Completed
+            foreach ($file in $files) {
+                Remove-Item -Path $file.FullName -Force -ErrorAction Stop
             }
-            catch {
-                $errorMsg = "Error encountered: $($_.Exception.Message)"
-                Write-Host $errorMsg
-                Add-Content -Path $LogFile -Value $errorMsg
-            }
+
+            Remove-Item -Path $folder.FullName -Recurse -Force -ErrorAction Continue
         }
+
+        Write-Progress -Id 1 -Activity "Deleted $folderName folders and their files" -Completed
     }
 
     $summary = "Deletion summary:"
     foreach ($folderName in $FoldersToDelete) {
-        $summary += "`nDeleted $($deletedFoldersCount[$folderName]) $folderName folder(s)."
+        $summary += "`nDeleted $($deletedFoldersCount[$folderName]) $folderName folder(s), $($deletedFilesCount[$folderName]) file(s)."
     }
     Write-Host $summary
     Add-Content -Path $LogFile -Value $summary
@@ -66,11 +55,19 @@ for ($i = 1; $i -le $folderTypes.Length; $i++) {
 }
 
 $selectedIndices = Read-Host -Prompt "`nEnter the numbers corresponding to your choices, separated by commas"
-$selectedIndicesArray = $selectedIndices.Split(',')
+$selectedIndicesArray = $selectedIndices.Split(',') | Sort -Unique
 
 $selectedFolders = @()
 foreach ($index in $selectedIndicesArray) {
-    $selectedFolders += $folderTypes[$index.Trim() - 1]
+    if ($index.Trim() -in 1..$folderTypes.Length) {
+        $selectedFolders += $folderTypes[$index.Trim() - 1]
+    } else {
+        Write-Host "Invalid entry: $index. Skipping..."
+    }
 }
 
-Remove-BinObjPackagesFolders -SolutionPath $basePath -FoldersToDelete $selectedFolders
+if ($selectedFolders.Length -eq 0) {
+    Write-Host "No valid folder types selected. Exiting..."
+} else {
+    Remove-BinObjPackagesFolders -SolutionPath $basePath -FoldersToDelete $selectedFolders
+}
